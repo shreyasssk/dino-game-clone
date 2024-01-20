@@ -30,8 +30,10 @@ class PlayScene extends GameScene {
 
         // add a collide listener to player & obstacle
         this.physics.add.collider(this.obstacles, this.player, () => {
-            this.physics.pause();
             this.isGameRunning = false;
+            this.physics.pause();
+
+            this.player.die();
         });
 
         // when the dinasor touchs the trigger
