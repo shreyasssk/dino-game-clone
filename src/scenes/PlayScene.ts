@@ -10,6 +10,7 @@ class PlayScene extends GameScene {
     clouds: Phaser.GameObjects.Group;
     startTrigger: SpriteWithDynamicBody;
 
+    highScoreText: Phaser.GameObjects.Text;
     scoreText: Phaser.GameObjects.Text;
     gameOverContainer: Phaser.GameObjects.Container;
     restartText: Phaser.GameObjects.Image;
@@ -154,6 +155,17 @@ class PlayScene extends GameScene {
         })
         .setOrigin(1, 0)
         .setAlpha(0);
+
+        const highScoreDistance = this.scoreText.getBounds().left - 20;
+        this.highScoreText = this.add
+        .text(highScoreDistance, 0, "00000", {
+            fontSize: 30,
+            fontFamily: "Arial",
+            color: "#535353",
+            resolution: 5,
+        })
+        .setOrigin(1, 0)
+        .setAlpha(0);
     };
 
     spawnObstacle() {
@@ -254,6 +266,12 @@ class PlayScene extends GameScene {
 
             this.player.die();
             this.gameOverContainer.setAlpha(1); // show container
+
+            const newHighScore = this.highScoreText.text.substring(this.highScoreText.text.length - 5);
+            const newScore = Number(this.scoreText.text) > Number(newHighScore) ? this.scoreText.text : newHighScore;
+
+            this.highScoreText.setText("HI " + newScore);
+            this.highScoreText.setAlpha(1);
 
             this.spawnTime = 0;
             this.score = 0;
