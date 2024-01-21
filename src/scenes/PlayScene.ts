@@ -7,15 +7,22 @@ class PlayScene extends GameScene {
     player: Player;
     ground: Phaser.GameObjects.TileSprite;
     obstacles: Phaser.Physics.Arcade.Group;
+    clouds: Phaser.GameObjects.Group;
     startTrigger: SpriteWithDynamicBody;
 
+    scoreText: Phaser.GameObjects.Text;
     gameOverContainer: Phaser.GameObjects.Container;
-    gameOverText: Phaser.GameObjects.Image;
     restartText: Phaser.GameObjects.Image;
+    gameOverText: Phaser.GameObjects.Image;
+
+    score: number = 0;
+    scoreInterval: number = 100;
+    scoreDeltaTime: number = 0;
 
     spawnInterval: number = 1500;
     spawnTime: number = 0;
     gameSpeed: number = 5;
+    gameSpeedModifier: number = 1;
     
     constructor() {
         super("PlayScene");
@@ -27,6 +34,7 @@ class PlayScene extends GameScene {
         this.createObstacles();
         this.createGameoverContainer();
         this.createAnimations();
+        this.createScore();
 
         this.handleGameStart();
         this.handleObstacleCollisions();
@@ -37,13 +45,34 @@ class PlayScene extends GameScene {
         if (!this.isGameRunning) { return; }
 
         this.spawnTime += delta;
+        this.scoreDeltaTime += delta;
+
+        if (this.scoreDeltaTime >= this.scoreInterval) {
+            this.score++;
+            this.scoreDeltaTime = 0;
+
+            // every 100 score increase difficulty level
+            if (this.score % 100 === 0) {
+                this.gameSpeedModifier++;
+                // this.gameSpeedModifier += 0.2;
+            }
+        }
 
         if (this.spawnTime > this.spawnInterval) {
             this.spawnObstacle();
             this.spawnTime = 0;
         };
 
-        Phaser.Actions.IncX(this.obstacles.getChildren(), -this.gameSpeed);
+        Phaser.Actions.IncX(this.obstacles.getChildren(), -this.gameSpeed * this.gameSpeedModifier);
+        Phaser.Actions.IncX(this.clouds.getChildren(), -0.5);
+
+        // change score text
+        const score = Array.from(String(this.score), Number);
+
+        for (let i = 0; i < 5 - String(this.score).length; i++) {
+            score.unshift(0);
+        }
+        this.scoreText.setText(score.join(""));
 
         this.obstacles.getChildren().forEach((obstacle: SpriteWithDynamicBody) => {
             // when obstacle leaves the game area, destroy it
@@ -52,7 +81,15 @@ class PlayScene extends GameScene {
             }
         });
 
-        this.ground.tilePositionX += this.gameSpeed;
+        this.clouds.getChildren().forEach((cloud: SpriteWithDynamicBody) => {
+            // when obstacle leaves the game area, destroy it
+            if (cloud.getBounds().right < 0) {
+                // spawn again 30px after gameWidth
+                cloud.x = this.gameWidth + 30;
+            }
+        });
+
+        this.ground.tilePositionX += (this.gameSpeed * this.gameSpeedModifier);
     }
     
     createPlayer() {
@@ -72,6 +109,16 @@ class PlayScene extends GameScene {
         this.ground = this.add
             .tileSprite(0, this.gameHeight, 88, 26, "ground")
             .setOrigin(0, 1);
+
+        this.clouds = this.add.group();
+
+        this.clouds = this.clouds.addMultiple([
+            this.add.image(this.gameWidth / 2, 170, "cloud"),
+            this.add.image(this.gameWidth -80, 80, "cloud"),
+            this.add.image(this.gameWidth / 1.3, 100, "cloud"),
+        ]);
+
+        this.clouds.setAlpha(0);
     };
 
     createObstacles() {
@@ -95,6 +142,18 @@ class PlayScene extends GameScene {
             frameRate: 6,
             repeat: -1
         });
+    };
+
+    createScore() {
+        this.scoreText = this.add
+        .text(this.gameWidth, 0, "00000", {
+            fontSize: 30,
+            fontFamily: "Arial",
+            color: "#535353",
+            resolution: 5,
+        })
+        .setOrigin(1, 0)
+        .setAlpha(0);
     };
 
     spawnObstacle() {
@@ -168,6 +227,12 @@ class PlayScene extends GameScene {
                         // stop moving the player
                         this.player.setVelocityX(0);
 
+                        // show clouds in the scene
+                        this.clouds.setAlpha(1);
+
+                        // show score text
+                        this.scoreText.setAlpha(1);
+
                         // remove the additional ground width 
                         // and set it to game width
                         this.ground.width = this.gameWidth;
@@ -191,7 +256,11 @@ class PlayScene extends GameScene {
             this.gameOverContainer.setAlpha(1); // show container
 
             this.spawnTime = 0;
-            this.gameSpeed = 5;
+            this.score = 0;
+            this.scoreDeltaTime = 0;
+
+            // reset game difficulty
+            this.gameSpeedModifier = 1;
         });
     };
 
