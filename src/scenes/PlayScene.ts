@@ -4,11 +4,14 @@ import GameScene from "./GameScene";
 import { PRELOAD_CONFIG } from "..";
 
 class PlayScene extends GameScene {
-    
     player: Player;
     ground: Phaser.GameObjects.TileSprite;
     obstacles: Phaser.Physics.Arcade.Group;
     startTrigger: SpriteWithDynamicBody;
+
+    gameOverContainer: Phaser.GameObjects.Container;
+    gameOverText: Phaser.GameObjects.Image;
+    restartText: Phaser.GameObjects.Image;
 
     spawnInterval: number = 1500;
     spawnTime: number = 0;
@@ -21,20 +24,90 @@ class PlayScene extends GameScene {
     create() {
         this.createEnvironment();
         this.createPlayer();
+        this.createObstacles();
+        this.createGameoverContainer();
 
+        this.handleGameStart();
+        this.handleObstacleCollisions();
+        this.handleGameRestart();
+
+    };
+
+    update(time: number, delta: number): void {
+        if (!this.isGameRunning) { return; }
+
+        this.spawnTime += delta;
+
+        if (this.spawnTime > this.spawnInterval) {
+            this.spawnObstacle();
+            this.spawnTime = 0;
+        };
+
+        Phaser.Actions.IncX(this.obstacles.getChildren(), -this.gameSpeed);
+
+        this.obstacles.getChildren().forEach((obstacle: SpriteWithDynamicBody) => {
+            // when obstacle leaves the game area, destroy it
+            if (obstacle.getBounds().right < 0) {
+                this.obstacles.remove(obstacle);
+            }
+        });
+
+        this.ground.tilePositionX += this.gameSpeed;
+    }
+    
+    createPlayer() {
+        // this.player = this.physics.add
+        //     .sprite(0, this.gameHeight,  "dino-idle")
+        //     .setOrigin(0, 1);
+
+        // this.player
+        //     .setGravityY(5000) // bring the player down
+        //     .setCollideWorldBounds(true) // don't allow it to go below the canvas height
+        //     .setBodySize(44, 92);
+
+        this.player = new Player(this, 0, this.gameHeight);
+    };
+
+    createEnvironment() {
+        this.ground = this.add
+            .tileSprite(0, this.gameHeight, 88, 26, "ground")
+            .setOrigin(0, 1);
+    };
+
+    createObstacles() {
+        this.gameOverText = this.add.image(0, 0, "game-over");
+        this.restartText = this.add.image(0, 80, "restart").setInteractive();
+
+        this.gameOverContainer = this.add
+            .container(this.gameWidth / 2, (this.gameHeight / 2) - 50)
+            .add([this.gameOverText, this.restartText])
+            .setAlpha(0); // hide container
+    };
+
+    createGameoverContainer() {
         this.obstacles = this.physics.add.group();
+    };
 
+    spawnObstacle() {
+        // because the key name ends in num (1-6)
+        const obstacleNum = Math.floor(Math.random() * PRELOAD_CONFIG.cactusesCount) + 1;
+        // width is 1000px, so get horizontal dist b/w 600-900
+        const distance = Phaser.Math.Between(600, 900);
+
+        this.obstacles.create(
+            distance, 
+            this.gameHeight, 
+            `obstacle-${obstacleNum}`
+        )
+        .setOrigin(0, 1)
+        .setImmovable();
+
+    };
+
+    handleGameStart() {
         this.startTrigger = this.physics.add.sprite(0, 10,  null)
             .setAlpha(0)
             .setOrigin(0, 1);
-
-        // add a collide listener to player & obstacle
-        this.physics.add.collider(this.obstacles, this.player, () => {
-            this.isGameRunning = false;
-            this.physics.pause();
-
-            this.player.die();
-        });
 
         // when the dinasor touchs the trigger
         this.physics.add.overlap(this.startTrigger, this.player, () => {
@@ -80,61 +153,36 @@ class PlayScene extends GameScene {
         });
     };
 
-    update(time: number, delta: number): void {
-        if (!this.isGameRunning) { return; }
+    handleObstacleCollisions() {
+        // add a collide listener to player & obstacle
+        this.physics.add.collider(this.obstacles, this.player, () => {
+            this.isGameRunning = false;
+            this.physics.pause();
 
-        this.spawnTime += delta;
+            this.player.die();
+            this.gameOverContainer.setAlpha(1); // show container
 
-        if (this.spawnTime > this.spawnInterval) {
-            this.spawnObstacle();
             this.spawnTime = 0;
-        };
-
-        Phaser.Actions.IncX(this.obstacles.getChildren(), -this.gameSpeed);
-
-        this.obstacles.getChildren().forEach((obstacle: SpriteWithDynamicBody) => {
-            // when obstacle leaves the game area, destroy it
-            if (obstacle.getBounds().right < 0) {
-                this.obstacles.remove(obstacle);
-            }
+            this.gameSpeed = 5;
         });
-
-        this.ground.tilePositionX += this.gameSpeed;
-    }
-    
-    createPlayer() {
-        // this.player = this.physics.add
-        //     .sprite(0, this.gameHeight,  "dino-idle")
-        //     .setOrigin(0, 1);
-
-        // this.player
-        //     .setGravityY(5000) // bring the player down
-        //     .setCollideWorldBounds(true) // don't allow it to go below the canvas height
-        //     .setBodySize(44, 92);
-
-        this.player = new Player(this, 0, this.gameHeight);
     };
 
-    createEnvironment() {
-        this.ground = this.add
-            .tileSprite(0, this.gameHeight, 88, 26, "ground")
-            .setOrigin(0, 1);
-    };
+    handleGameRestart() {
+        this.restartText.on("pointerdown", () => {
+            this.physics.resume();
+            // to avoid the jump when game starts
+            this.player.setVelocityY(0);
 
-    spawnObstacle() {
-        // because the key name ends in num (1-6)
-        const obstacleNum = Math.floor(Math.random() * PRELOAD_CONFIG.cactusesCount) + 1;
-        // width is 1000px, so get horizontal dist b/w 600-900
-        const distance = Phaser.Math.Between(600, 900);
+            // remove obstacles from scene and its children
+            this.obstacles.clear(true, true);
+            // remove the game-over text from scene
+            this.gameOverContainer.setAlpha(0);
 
-        this.obstacles.create(
-            distance, 
-            this.gameHeight, 
-            `obstacle-${obstacleNum}`
-        )
-        .setOrigin(0, 1)
-        .setImmovable();
+            // resume anims
+            this.anims.resumeAll();
 
+            this.isGameRunning = true;
+        });
     };
 };
 
