@@ -25,7 +25,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
             .setGravityY(5000) // bring the player down
             .setCollideWorldBounds(true) // don't allow it to go below the canvas height
             .setBodySize(44, 92)
-            .setOffset(20, 0);
+            .setOffset(20, 0)
+            .setDepth(1); // like z-index, brings the player in front when coincide with other objects
 
         // this.registerPlayerControl();
         this.registerAnimations();

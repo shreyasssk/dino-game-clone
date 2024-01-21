@@ -26,11 +26,11 @@ class PlayScene extends GameScene {
         this.createPlayer();
         this.createObstacles();
         this.createGameoverContainer();
+        this.createAnimations();
 
         this.handleGameStart();
         this.handleObstacleCollisions();
         this.handleGameRestart();
-
     };
 
     update(time: number, delta: number): void {
@@ -88,19 +88,46 @@ class PlayScene extends GameScene {
         this.obstacles = this.physics.add.group();
     };
 
-    spawnObstacle() {
-        // because the key name ends in num (1-6)
-        const obstacleNum = Math.floor(Math.random() * PRELOAD_CONFIG.cactusesCount) + 1;
-        // width is 1000px, so get horizontal dist b/w 600-900
-        const distance = Phaser.Math.Between(600, 900);
+    createAnimations() {
+        this.anims.create({
+            key: "enemy-bird-fly",
+            frames: this.anims.generateFrameNumbers("enemy-bird"),
+            frameRate: 6,
+            repeat: -1
+        });
+    };
 
-        this.obstacles.create(
-            distance, 
-            this.gameHeight, 
-            `obstacle-${obstacleNum}`
-        )
-        .setOrigin(0, 1)
-        .setImmovable();
+    spawnObstacle() {
+        const obstaclesCount = PRELOAD_CONFIG.cactusesCount + PRELOAD_CONFIG.birdsCount;
+        // because the key name ends in num (1-7)
+        const obstacleNum = Math.floor(Math.random() * obstaclesCount) + 1;
+        // const obstacleNum = 7;
+        
+        // width is 1000px, so get horizontal dist b/w 600-900
+        const distance = Phaser.Math.Between(150, 300);
+        let obstacle;
+
+        if (obstacleNum > PRELOAD_CONFIG.cactusesCount) {
+            const enemyPossibleHeight = [20, 70];
+            const enemyHeight = enemyPossibleHeight[Math.floor(Math.random() * 2)];
+
+            obstacle = this.obstacles.create(
+                this.gameWidth + distance, 
+                this.gameHeight - enemyHeight, 
+                "enemy-bird"
+            );
+            obstacle.play("enemy-bird-fly", true);
+        } else {
+            obstacle = this.obstacles.create(
+                this.gameWidth + distance, 
+                this.gameHeight, 
+                `obstacle-${obstacleNum}`
+            );
+        }
+
+        obstacle
+            .setOrigin(0, 1)
+            .setImmovable();
 
     };
 
@@ -158,6 +185,7 @@ class PlayScene extends GameScene {
         this.physics.add.collider(this.obstacles, this.player, () => {
             this.isGameRunning = false;
             this.physics.pause();
+            this.anims.pauseAll();
 
             this.player.die();
             this.gameOverContainer.setAlpha(1); // show container
